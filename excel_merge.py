@@ -144,7 +144,7 @@ for i, file in enumerate(files):
 
 
 save_dict_to_csv(len(files), master_dict) #Save merged dictionary as .csv
-insert_data_to_csv('output.csv', name_list) #Add a row with the names of the files that the data came from to the .csv file so this info is easily available.
+insert_data_to_csv('merge_output.csv', name_list) #Add a row with the names of the files that the data came from to the .csv file so this info is easily available.
 print("Data has been merged as 'merge_output.csv'")
 
 
