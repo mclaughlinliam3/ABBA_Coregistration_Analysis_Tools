@@ -66,79 +66,89 @@ def compare_distributions(sample1, sample2):
     return test_statistic, p_value
 
 
-def save_list_to_csv(data_list, output_file):
+def save_list_to_csv(data_list, p_vals, output_file):
     """
-    Save a list as a single column in a CSV file using pandas.
+    Save the lists in a CSV file using pandas.
 
     Parameters:
         data_list (list): The list to be saved.
         output_file (str): The path to the output CSV file.
     """
-    df = pd.DataFrame(data_list, columns=['Column'])
+    df = pd.DataFrame({
+        'Significance Direction': data_list,
+        'p_value': p_vals
+    })
+
     df.to_csv(output_file, index=False)
 
 
 # Main code body:
 
-print(f"This program can be used to do a few significance tests between groups for the data created in this pipeline.\nPlease note this version 'stat_test_clusters' is meant for only the Cluster% statistic, since it compares the distributions' logarithm\nsince Cluster% is on a multiplicative scale. If your data is on an additive scale (such as 'cell counts')\nPlease use 'stat_test' instead\nThe output of this file will be a single column. A value of 1 indicates Group1 is significantly greater for that row (region). \nA value of -1 indicates Group2 is significantly greater.\nA value of 0 indicates no significance\n")
+if __name__ == "__main__":
+
+    print(f"This program can be used to do a few significance tests between groups for the data created in this pipeline.\nPlease note this version 'stat_test_clusters' is meant for only the Cluster% statistic, since it compares the distributions' logarithm\nsince Cluster% is on a multiplicative scale. If your data is on an additive scale (such as 'cell counts')\nPlease use 'stat_test' instead\nThe output of this file will be a single column. A value of 1 indicates Group1 is significantly greater for that row (region). \nA value of -1 indicates Group2 is significantly greater.\nA value of 0 indicates no significance\n")
 
 
-# Get intended stat test from user:
-while True:
-    stat_test = input(
-        "Please select intended stat test. Type 'st' for a student's two sample t test. Type 'wt' for welch's two sample t test. Type 'mw' for a Mann-Whitney U test: ")
-    if stat_test == 'st' or stat_test == 'wt' or stat_test == 'mw':
-        break
+    # Get intended stat test from user:
+    while True:
+        stat_test = input(
+            "Please select intended stat test. Type 'st' for a student's two sample t test. Type 'wt' for welch's two sample t test. Type 'mw' for a Mann-Whitney U test: ")
+        if stat_test == 'st' or stat_test == 'wt' or stat_test == 'mw':
+            break
 
-# Get group data from user
-p7 = input("Group 1 excel file?: ")
-p30 = input("Group 2 excel file?: ")
-a = float(input("Alpha value?: "))
+    # Get group data from user
+    p7 = input("Group 1 excel file?: ")
+    p30 = input("Group 2 excel file?: ")
+    a = float(input("Alpha value?: "))
 
-# Convert pd df to list
-p7_lists = read_excel_to_lists(p7)
-p30_lists = read_excel_to_lists(p30)
+    # Convert pd df to list
+    p7_lists = read_excel_to_lists(p7)
+    p30_lists = read_excel_to_lists(p30)
 
-sig_list = []  # Running list of significances to be saved in the future
+    sig_list = []  # Running list of significances to be saved in the future
+    p_vals = [] # And a list of p-values
 
-# loop through data to do significance test on each region:
-for i, p7 in enumerate(p7_lists):
+    # loop through data to do significance test on each region:
+    for i, p7 in enumerate(p7_lists):
 
-    p30 = p30_lists[i]  # Get current region information
+        p30 = p30_lists[i]  # Get current region information
 
 
-    #The following several lines handle empty excel cells, if they exist for whatever reason. For example, a region may have not had a density...
-    p7 = [x for x in p7 if not np.isnan(x)]
-    p30 = [x for x in p30 if not np.isnan(x)]
+        #The following several lines handle empty excel cells, if they exist for whatever reason. For example, a region may have not had a density...
+        p7 = [x for x in p7 if not np.isnan(x)]
+        p30 = [x for x in p30 if not np.isnan(x)]
 
-    if not p7 or not p30:
-        sig_list.append(0) #In any instance of a totally empty row, siginficance is assumed to be none...
-        print(f"Empty data at {i}. Significance assumed to be none for this region.")
-        continue
+        if not p7 or not p30:
+            sig_list.append(0) #In any instance of a totally empty row, siginficance is assumed to be none...
+            p_vals.append(0)
+            print(f"Empty data at {i}. Significance assumed to be none for this region.")
+            continue
 
-    # Convert to log for multiplicatively scaled data
-    p7_log = list_logs(p7)  
-    p30_log = list_logs(p30)
+        # Convert to log for multiplicatively scaled data
+        p7_log = list_logs(p7)  
+        p30_log = list_logs(p30)
 
-    # Perform stat test the user wants
-    if stat_test == 'mw':
-        t_statistic, p_value = compare_distributions(p7_log, p30_log)
-    elif stat_test == 'wt':
-        t_statistic, p_value = welch_t_test(p7_log, p30_log)
-    elif stat_test == 'st':
-        t_statistic, p_value = student_t_test(p7_log, p30_log)
+        # Perform stat test the user wants
+        if stat_test == 'mw':
+            t_statistic, p_value = compare_distributions(p7_log, p30_log)
+        elif stat_test == 'wt':
+            t_statistic, p_value = welch_t_test(p7_log, p30_log)
+        elif stat_test == 'st':
+            t_statistic, p_value = student_t_test(p7_log, p30_log)
 
-    # This block is to determine which group has greater significance, if at all.
-    if p_value >= a:
-        sig_list.append(0)
+        # This block is to determine which group has greater significance, if at all.
+        if p_value >= a:
+            sig_list.append(0)
 
-    elif statistics.mean(p7) >= statistics.mean(p30) and p_value < a:
-        sig_list.append(1)
+        elif statistics.mean(p7) >= statistics.mean(p30) and p_value < a:
+            sig_list.append(1)
 
-    elif statistics.mean(p30) > statistics.mean(p7) and p_value < a:
+        elif statistics.mean(p30) > statistics.mean(p7) and p_value < a:
 
-        sig_list.append(-1)
+            sig_list.append(-1)
 
-# Save significance test results as a csv
-save_list_to_csv(sig_list, "stat_output.csv")
-print("Data has been saved to 'stat_output.csv'")
+        p_vals.append(p_value)
+
+    # Save significance test results as a csv
+    save_list_to_csv(sig_list, p_vals, "stat_output.csv")
+    print("Data has been saved to 'stat_output.csv'")
